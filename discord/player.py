@@ -653,3 +653,5 @@ class AudioPlayer(threading.Thread):
             asyncio.run_coroutine_threadsafe(self.client.ws.speak(speaking), self.client.loop)
         except Exception as e:
             log.info("Speaking call in player failed: %s", e)
+
+            
