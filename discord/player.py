@@ -654,4 +654,4 @@ class AudioPlayer(threading.Thread):
         except Exception as e:
             log.info("Speaking call in player failed: %s", e)
 
-            
+

@@ -369,6 +369,45 @@ class VoiceClient:
 
         return header + box.encrypt(bytes(data), bytes(nonce)).ciphertext + nonce[:4]
 
+    def _decrypt_xsalsa20_poly1305(self, packet):
+        box = nacl.secret.SecretBox(bytes(self.secret_key))
+        nonce = bytearray(24)
+        nonce[:12] = packet.header
+        result = box.decrypt(bytes(packet.data), bytes(nonce))
+
+        if packet.extended:
+            offset = packet.update_ext_headers(result)
+            result = result[offset:]
+
+        return result
+
+    def _decrypt_xsalsa20_poly1305_suffix(self, packet):
+        box = nacl.secret.SecretBox(bytes(self.secret_key))
+        nonce = packet.data[-24:]
+        voice_data = packet.data[:-24]
+        result = box.decrypt(bytes(voice_data), bytes(nonce))
+
+        if packet.extended:
+            offset = packet.update_ext_headers(result)
+            result = result[offset:]
+
+        return result
+
+    def _decrypt_xsalsa20_poly1305_lite(self, packet):
+        box = nacl.secret.SecretBox(bytes(self.secret_key))
+        nonce = bytearray(24)
+        nonce[:4] = packet.data[-4:]
+        voice_data = packet.data[:-4]
+        result = box.decrypt(bytes(voice_data), bytes(nonce))
+
+        if packet.extended:
+            offset = packet.update_ext_headers(result)
+            result = result[offset:]
+
+        return result
+
+
+
     def play(self, source, *, after=None):
         """Plays an :class:`AudioSource`.
 
@@ -487,3 +526,24 @@ class VoiceClient:
             log.warning('A packet has been dropped (seq: %s, timestamp: %s)', self.sequence, self.timestamp)
 
         self.checked_add('timestamp', opus.Encoder.SAMPLES_PER_FRAME, 4294967295)
+
+    #------------------------------------------------------------------------------------------------
+    def listen(self, sink, user):
+        """Receives audio into a :class:`AudioSink`. TODO: wording
+        TODO: the rest of it
+        """
+
+        if not self.is_connected():
+            raise ClientException('Not connected to voice.')
+
+        if not isinstance(sink, AudioSink):
+            raise TypeError('sink must be an AudioSink not {0.__class__.__name__}'.format(sink))
+
+        if self.is_listening():
+            raise ClientException('Already receiving audio.')
+
+        self._reader = AudioReader(sink, self)
+        self._reader.start()
+
+
+
